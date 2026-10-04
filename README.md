@@ -41,6 +41,21 @@ To restore these default settings use `/tc-on reset=true`
 
 
 
+## Images
+
+Each card shows an expression sprite from the character's sprite folder (`data/<user>/characters/<name>/`).
+
+- The expression `neutral` is used by default. Pick another one in the settings or with `/tc-on emote=joy`.
+- If the selected expression has no image, the card falls back to `neutral`.
+- Sprite folder overrides of the Character Expressions extension are honored. This also shows your persona's sprites when Prome's user sprite is active in a group chat.
+- File types are tried in the order `png`, `webp`, `gif`.
+
+`right click` on a card to pick a costume, i.e. a subfolder of the character's sprite folder (requires the Costumes plugin, see [Requirements](#requirements)).
+
+> **Known issue:** SillyTavern's `/costume` command, which is used to apply the costume, always changes the character who wrote the last message, not the card you clicked. In group chats, only change the costume of the character who spoke last.
+
+
+
 ## Custom cards
 
 Instead of the member list, you can use a custom list of cards by either providing the name of a Quick Reply set (the labels of the quick replies will be used as character names and to find the corresponding expression images, add `::qr` to the label to execute the quick reply on click instead of the normal click action) or by providing a comma-separated list of names.
