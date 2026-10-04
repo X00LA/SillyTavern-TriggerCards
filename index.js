@@ -1,5 +1,5 @@
 import { characters, chat_metadata, eventSource, event_types, getRequestHeaders, reloadMarkdownProcessor, sendSystemMessage } from '../../../../script.js';
-import { getContext, saveMetadataDebounced } from '../../../extensions.js';
+import { extension_settings, getContext, saveMetadataDebounced } from '../../../extensions.js';
 import { executeSlashCommands, executeSlashCommandsWithOptions, registerSlashCommand } from '../../../slash-commands.js';
 import { SlashCommand } from '../../../slash-commands/SlashCommand.js';
 import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '../../../slash-commands/SlashCommandArgument.js';
@@ -37,7 +37,41 @@ const loadSettings = ()=>{
     settings.onRestart = ()=>restartDebounced();
     chat_metadata.triggerCards = settings;
 };
+const addSettingsMenu = ()=>{
+    const drawer = document.createElement('div'); {
+        drawer.classList.add('sttc--extensionSettings');
+        drawer.innerHTML = `
+            <div class="inline-drawer">
+                <div class="inline-drawer-toggle inline-drawer-header">
+                    <b>Trigger Cards</b>
+                    <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+                </div>
+                <div class="inline-drawer-content">
+                    <small>Settings are saved per chat. Same as <code>/tc-config</code>.</small>
+                    <div class="menu_button menu_button_icon" title="Open Trigger Cards settings for the current chat">
+                        <i class="fa-solid fa-gear"></i>
+                        <span>Open Settings</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        drawer.querySelector('.menu_button').addEventListener('click', async()=>{
+            if (!settings || !getContext().chatId) {
+                toastr.info('Open a chat first, Trigger Cards settings are saved per chat.');
+                return;
+            }
+            // close the extensions panel so it doesn't cover the settings
+            const extensionsBlock = document.querySelector('#rm_extensions_block');
+            if (extensionsBlock?.classList.contains('openDrawer') && !extensionsBlock.classList.contains('pinnedOpen')) {
+                /**@type {HTMLElement}*/(document.querySelector('#extensions-settings-button > .drawer-toggle'))?.click();
+            }
+            await settings.show();
+        });
+        document.querySelector('#extensions_settings2').append(drawer);
+    }
+};
 const init = ()=>{
+    addSettingsMenu();
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'tc-config',
         callback: async(args, value)=>{
             await settings.show();
@@ -51,12 +85,12 @@ const init = ()=>{
             SlashCommandNamedArgument.fromProps({ name: 'actions',
                 description: 'name of a QR set for click actions, see /tc?',
                 typeList: [ARGUMENT_TYPE.STRING],
-                enumProvider: ()=>quickReplyApi.listSets().map(it=>new SlashCommandEnumValue(it)),
+                enumProvider: ()=>(quickReplyApi?.listSets() ?? []).map(it=>new SlashCommandEnumValue(it)),
             }),
             SlashCommandNamedArgument.fromProps({ name: 'members',
                 description: 'name of a QR set used as member list, see /tc?',
                 typeList: [ARGUMENT_TYPE.STRING],
-                enumProvider: ()=>quickReplyApi.listSets().map(it=>new SlashCommandEnumValue(it)),
+                enumProvider: ()=>(quickReplyApi?.listSets() ?? []).map(it=>new SlashCommandEnumValue(it)),
             }),
             SlashCommandNamedArgument.fromProps({ name: 'emote',
                 description: 'character expression to use for trigger card',
@@ -136,7 +170,7 @@ const activate = async(args, members) => {
     settings.memberQrSet = args.members ?? (args.reset ? undefined : settings.memberQrSet);
     settings.memberList = memberList && memberList.length > 0 ? memberList : (args.reset ? undefined : settings.memberList);
     if (settings.memberList && settings.memberList.filter(it=>it).length <= 0) settings.memberList = undefined;
-    settings.expression = args.emote ?? (args.reset ? 'joy' : settings.expression) ?? 'joy';
+    settings.expression = args.emote ?? (args.reset ? 'neutral' : settings.expression) ?? 'neutral';
     settings.extensions = extList && extList.length > 0 ? extList : (args.reset ? ['png', 'webp', 'gif'] : settings.extList) ?? ['png', 'webp', 'gif'];
     if (settings.extensions && settings.extensions.filter(it=>it).length <= 0) settings.extensions = ['png', 'webp', 'gif'];
     settings.grayscale = gray ?? (args.reset ? true : settings.grayscale) ?? true;
@@ -196,7 +230,7 @@ const handleClick = async (/**@type {MouseEvent}*/evt, /**@type {string}*/fullNa
     evt.preventDefault();
     evt.stopPropagation();
     const [name, ...args] = fullName.split('::');
-    if (settings.memberQrSet && args.includes('qr')) {
+    if (quickReplyApi && settings.memberQrSet && args.includes('qr')) {
         try {
             await quickReplyApi.executeQuickReply(settings.memberQrSet, fullName);
         } catch (ex) {
@@ -208,7 +242,7 @@ const handleClick = async (/**@type {MouseEvent}*/evt, /**@type {string}*/fullNa
         if (evt.shiftKey) modifiers.push('s');
         if (evt.altKey) modifiers.push('a');
         const mod = modifiers.join('');
-        if (settings.actionQrSet) {
+        if (quickReplyApi && settings.actionQrSet) {
             if (quickReplyApi.listQuickReplies(settings.actionQrSet).includes(mod)) {
                 try {
                     await quickReplyApi.executeQuickReply(settings.actionQrSet, mod, { name, set:settings.memberQrSet });
@@ -321,10 +355,10 @@ const handleContext = async(evt, fullName, wrap) => {
 const handleTitle = async (el, fullName) => {
     const [name, ...args] = fullName.split('::');
     let titleParts = [name];
-    if (settings.memberQrSet && args.includes('qr')) {
+    if (quickReplyApi && settings.memberQrSet && args.includes('qr')) {
         const qr = quickReplyApi.getQrByLabel(settings.memberQrSet, fullName);
         titleParts.push(qr.title || qr.message);
-    } else if (settings.actionQrSet) {
+    } else if (quickReplyApi && settings.actionQrSet) {
         const mods = {
             'c': 'ctrl',
             's': 'shift',
@@ -374,15 +408,29 @@ const getMuted = ()=>{
     const names = members.map(it=>it.name);
     return names;
 };
+/**
+ * Sprite folder for a card name, honoring the sprite folder overrides of the expressions extension
+ * (e.g. Prome maps its user sprite dummy "prome-user" to the persona's sprite folder).
+ * @param {string} name
+ */
+const getSpriteFolder = (name) => {
+    const avatar = getContext().characters.find(it=>it.name == name)?.avatar?.replace(/\.[^/.]+$/, '');
+    if (!avatar) return name;
+    return extension_settings.expressionOverrides?.find(it=>it.name == avatar)?.path || name;
+};
 const findImage = async(name) => {
-    for (const ext of settings.extensions) {
-        const url = `/characters/${name}/${settings.expression}.${ext}`;
-        const resp = await fetch(url, {
-            method: 'HEAD',
-            headers: getRequestHeaders(),
-        });
-        if (resp.ok) {
-            return url;
+    // most sprite folders only contain neutral, so fall back to it when the selected expression is missing
+    const expressions = [...new Set([settings.expression, 'neutral'])];
+    for (const expression of expressions) {
+        for (const ext of settings.extensions) {
+            const url = `/characters/${name}/${expression}.${ext}`;
+            const resp = await fetch(url, {
+                method: 'HEAD',
+                headers: getRequestHeaders(),
+            });
+            if (resp.ok) {
+                return url;
+            }
         }
     }
 };
@@ -416,7 +464,7 @@ const updateMembers = async() => {
                 const img = document.createElement('img'); {
                     img.classList.add('sttc--img');
                     img.setAttribute('data-character', name);
-                    img.src = await findImage(settings.costumes?.[namePart] ?? namePart);
+                    img.src = await findImage(settings.costumes?.[namePart] ?? getSpriteFolder(namePart));
                     wrap.append(img);
                 }
                 const before = imgs.find(it=>name.localeCompare(it.getAttribute('data-character')) == -1);
@@ -444,7 +492,7 @@ const updateMembers = async() => {
             }
             if (expression != settings.expression || extensions != settings.extensions.join(', ')) {
                 const namePart = img.getAttribute('data-character').split('::')[0];
-                img.src = await findImage(settings.costumes?.[namePart] ?? namePart);
+                img.src = await findImage(settings.costumes?.[namePart] ?? getSpriteFolder(namePart));
             }
         });
         expression = settings.expression;

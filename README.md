@@ -6,6 +6,22 @@ Displays small interactive portraits of all group chat members on top of the cha
 
 
 
+## Requirements
+
+- [Costumes Plugin](https://github.com/LenAnderson/SillyTavern-Costumes.git) (server plugin) – **required** for changing costumes (`right click` on a trigger card). Without it, right-clicking a card fails with `Failed to retrieve costumes: 404 - Not Found`.
+
+To install the server plugin:
+
+1. Clone it into the `plugins` folder of your SillyTavern installation (not the extensions folder):
+   ```
+   cd SillyTavern/plugins
+   git clone https://github.com/LenAnderson/SillyTavern-Costumes.git
+   ```
+2. Make sure `enableServerPlugins: true` is set in SillyTavern's `config.yaml`.
+3. Restart the SillyTavern server (reloading the browser is not enough).
+
+
+
 ## Basic Usage
 
 All settings are saved to the active chat.
@@ -13,6 +29,7 @@ All settings are saved to the active chat.
 - `/tc-on` to enable trigger cards.
 - `/tc-off` to disable trigger cards.
 - `/tc?` to show this help.
+- `/tc-config` to open the settings menu for the active chat. You can also open it from the Extensions panel: **Trigger Cards** → **Open Settings**.
 
 By default, a trigger card is created for each group member with the following actions:
 

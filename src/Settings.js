@@ -15,7 +15,7 @@ export class Settings {
     /**@type {string} */ actionQrSet = null;
     /**@type {string} */ memberQrSet = null;
     /**@type {string[]} */ memberList = null;
-    /**@type {string} */ expression = 'joy';
+    /**@type {string} */ expression = 'neutral';
     /**@type {string[]} */ extensions = ['png', 'webp', 'gif'];
     /**@type {boolean} */ grayscale = true;
     /**@type {boolean} */ mute = true;
@@ -87,7 +87,7 @@ export class Settings {
                                 actionQrSet: null,
                                 memberQrSet: null,
                                 memberList: null,
-                                expression: 'joy',
+                                expression: 'neutral',
                                 extensions: ['png', 'webp', 'gif'],
                                 grayscale: true,
                                 mute: true,
@@ -108,7 +108,7 @@ export class Settings {
                 description: 'Name of a QR Set for click actions, see /tc?',
                 category: ['Actions'],
                 initialValue: this.actionQrSet,
-                optionList: [{ value:'', label:'-- Default Actions --' }, ...quickReplyApi.listSets().map(it=>({ value:it, label:it }))],
+                optionList: [{ value:'', label:'-- Default Actions --' }, ...(quickReplyApi?.listSets() ?? []).map(it=>({ value:it, label:it }))],
                 onChange: (it)=>{
                     this.actionQrSet = it.value;
                     this.save();
@@ -121,7 +121,7 @@ export class Settings {
                 description: 'Name of a QR Set used as member list, see /tc?',
                 category: ['Members'],
                 initialValue: this.memberQrSet,
-                optionList: [{ value:'', label:'-- None --' }, ...quickReplyApi.listSets().map(it=>({ value:it, label:it }))],
+                optionList: [{ value:'', label:'-- None --' }, ...(quickReplyApi?.listSets() ?? []).map(it=>({ value:it, label:it }))],
                 onChange: (it)=>{
                     this.memberQrSet = it.value;
                     this.save();
